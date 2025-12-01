@@ -1,0 +1,5 @@
+baselines/SF-TQA/data
+baselines/SF-TQA/mark/data
+baselines/SF-TQA/rank/log
+baselines/SF-TQA/run/log
+baselines/SF-TQA/runs
