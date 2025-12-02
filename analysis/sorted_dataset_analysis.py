@@ -1083,7 +1083,7 @@ def result_analysis(extraction_path, result_path, test_path):
             elif aspect in ['timepoint_ordinal', 'duration_ordinal', 'temporal_statistic', 'frequency']:
                 has_aggr = True
             elif aspect in ['fact_counting']:
-                pass
+                continue
             else:
                 print(aspect)
                 assert(0)
