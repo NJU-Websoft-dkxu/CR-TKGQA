@@ -1010,35 +1010,37 @@ def calculate_splits_statics(data_dir):
 
 
 def result_analysis(extraction_path, result_path, test_path):
-    superlative_words = [
-        "tallest", "largest", "biggest", "happiest", "prettiest", "thinnest",
-        "fattest", "saddest", "maddest", "hottest", "coldest", "smartest",
-        "brightest", "darkest", "lightest", "longest", "shortest", "oldest",
-        "youngest", "richest", "poorest", "fastest", "slowest", "strongest",
-        "weakest", "cheapest", "dearest", "easiest", "hardest", "simplest",
-        "cleverest", "narrowest", "quietest", "loudest", "nearest", "farthest",
-        "bravest", "kindest", "rudest", "sweetest", "bitterest", "softest",
-        "hardest", "smoothest", "roughest", "cleanest", "dirtiest", "widest",
-        "worst", "least", "furthest", "farthest", "eldest", "utmost",
-        "foremost", "innermost", "outermost", "uppermost", "lowermost", "topmost",
-        "bottommost", "easternmost", "westernmost", "northernmost", "southernmost"
-    ]
     def avg(l):
         if len(l) == 0:
             return 0
         else:
             return sum(l)/len(l)
-    # "duration_comparison": [],
-    # "duration_calculation": [],
-    # "timepoint_shift": [],
-    # "duration_derivation": [],
-    # "granularity_conversion": [],
-    # "temporal_composition": [],
-    # "multi_hop": [],
-    # "timepoint_ordinal": [],
-    # "duration_ordinal": [],
-    # "temporal_statistic": [],
-    # "fact_counting": []
+        # "analysis": {
+        #     "timepoint_comparision": [
+        #         "FILTER (xsd:date(?x6) > xsd:date(?x4))",
+        #         "FILTER (YEAR(?x3) = 650)"
+        #     ],
+        #     "duration_comparison": [],
+        #     "duration_calculation": [],
+        #     "timepoint_shift": [],
+        #     "duration_derivation": [],
+        #     "granularity_conversion": [
+        #         "FILTER (YEAR(?x3) = 650)"
+        #     ],
+        #     "frequency": [],
+        #     "temporal_fact_fusion": [
+        #         true
+        #     ],
+        #     "multi_hop_reasoning": [
+        #         true
+        #     ],
+        #     "timepoint_ordinal": [
+        #         "(xsd:date(?x6))"
+        #     ],
+        #     "duration_ordinal": [],
+        #     "temporal_statistic": [],
+        #     "fact_counting": []
+        # },
     #class into 16 types
     structural_none = []
     structural_tc = []
@@ -1047,35 +1049,44 @@ def result_analysis(extraction_path, result_path, test_path):
     operational_none = []
     operational_cmp = []
     operational_arith = []
-    operational_subtle_special = []
     operational_aggr = []
-    id2complevel = {item['id']:item['comp_level'] for item in read_json(test_path)}
+    #id2complevel = {item['id']:item['comp_level'] for item in read_json(test_path)}
     id2question = {item['id']:item['question'] for item in read_json(test_path)}
+    id2complevel = {item['id']:item['comp_level'] for item in read_json(test_path)}
     data = read_json(extraction_path)
-    total_len = len(data)
+    id2aspect = {}
+    level1_cmp = []
+    level1_art = []
+    level1_agg = []
     for item in data:
         id = item['id']
         complexity_aspects = [aspect for aspect in item['analysis'] if len(item['analysis'][aspect]) > 0]
+        id2aspect[id] =complexity_aspects
         structural = [aspect for aspect in complexity_aspects if aspect in ['temporal_fact_fusion', 'multi_hop_reasoning']]
         operational = [aspect for aspect in complexity_aspects if aspect not in ['temporal_fact_fusion', 'multi_hop_reasoning']]
         if len(structural) == 0:
             structural_none.append(id)
-        if 'temporal_composition' in structural:
+        if 'temporal_fact_fusion' in structural and 'multi_hop_reasoning' not in structural:
             structural_tc.append(id)
-        if 'multi_hop' in structural:
+        if 'temporal_fact_fusion' not in structural and 'multi_hop_reasoning' in structural:
             structural_m.append(id)
-        if 'temporal_composition' in structural and 'multi_hop' in structural:
+        if 'temporal_fact_fusion' in structural and 'multi_hop_reasoning' in structural:
             structural_tc_m.append(id)
-        has_cmp = len(set(operational).intersection(['timepoint_comparision', 'duration_comparison'])) > 0 
-        # has_arith = len(set(operational).intersection(['granularity_conversion', 'duration_derivation', 'duration_calculation', 'timepoint_shift'])) > 0
-        has_arith = len(set(operational).intersection(['duration_derivation', 'duration_calculation', 'timepoint_shift'])) > 0
-        has_aggr = len(set(operational).intersection(['timepoint_ordinal', 'duration_ordinal', 'temporal_statistic', 'fact_counting'])) > 0
-        if 'youngest' in item['question']:
-            pass
-        if 'duration_ordinal' in operational and 'duration_derivation' in operational:
-            operational_subtle_special.append(id)
-        # if not has_cmp and not has_arith and not has_aggr:
-        #     print(item['question'])
+        has_cmp = False
+        has_arith = False
+        has_aggr = False
+        for aspect in operational:
+            if aspect in ['timepoint_comparision', 'duration_comparison']:
+                has_cmp = True
+            elif aspect in ['granularity_conversion', 'duration_derivation', 'duration_calculation', 'timepoint_shift']:
+                has_arith = True
+            elif aspect in ['timepoint_ordinal', 'duration_ordinal', 'temporal_statistic', 'frequency']:
+                has_aggr = True
+            elif aspect in ['fact_counting']:
+                pass
+            else:
+                print(aspect)
+                assert(0)
         if not has_cmp and not has_arith and not has_aggr:
             operational_none.append(id)
         if has_cmp:
@@ -1084,45 +1095,63 @@ def result_analysis(extraction_path, result_path, test_path):
             operational_arith.append(id)
         if has_aggr:
             operational_aggr.append(id)
-    dict_temp = {}
-    for id in operational_none:
-        if id in id2complevel:
-            comp_level = id2complevel[id]
-            if comp_level not in dict_temp:
-                dict_temp[comp_level] = 0
-            dict_temp[comp_level] += 1
-    print(dict_temp)
+        if id in id2question and (has_cmp and not has_aggr and not has_arith):
+            level1_cmp.append(id)
+        if id in id2question and (not has_cmp and not has_aggr and has_arith):
+            level1_art.append(id)
+        if id in id2question and (not has_cmp and has_aggr and not has_arith):
+            level1_agg.append(id)
     #将结果按照方法排序
-    operational_subtle_special_within_sample = []
-    subtle_id = []
-    non_subtle_id = []
+    # print("--------------CMP--------------------")
+    # count_percentage = 0
+    # for id in level1_cmp:
+    #     if 'fact_counting' in id2aspect[id]:
+    #         print('WITH COUNT', id2question[id], id2aspect[id])
+    #         count_percentage += 1
+    #     else:
+    #         print('WITHOUT COUNT', id2question[id], id2aspect[id])
+    # print("percentage of containing COUNT", count_percentage/len(level1_cmp))
+    # # print("--------------ART--------------------")
+    # count_percentage = 0
+    # for id in level1_art:
+    #     print(id2question[id], id2aspect[id])
+    #     if 'fact_counting' in id2aspect[id]:
+    #         count_percentage += 1
+    # print("percentage of containing COUNT", count_percentage/len(level1_cmp))
+    # print("--------------AGG--------------------")
+    # count_percentage = 0
+    # for id in level1_agg:
+    #     print(id2question[id], id2aspect[id])
+    #     if 'fact_counting' in id2aspect[id]:
+    #         count_percentage += 1
+    # print("percentage of containing COUNT", count_percentage/len(level1_cmp))
     method_f1s = {}
+    id_old_to_new = read_json('/home5/dkxu/workspace/dataset-ESWC/checked/process_date_year/old2new.json')
     for item in read_json(result_path):
         qid = item['id']
-        if 'Direct' not in item['eval']:
-            continue
-        if qid in operational_subtle_special:
-            subtle = False
-            operational_subtle_special_within_sample.append(qid)
-            for token in id2question[qid].replace("?",".").split():
-                if token in superlative_words or len(set(token.split('-')).intersection(superlative_words)) > 0:
-                    subtle = True
-                    break
-            if subtle:
-                subtle_id.append(qid)
-                # print('subtle',id2question[qid])
-            else:
-                non_subtle_id.append(qid)
-                print('non subtle',id2question[qid])
-        for method, feature in item['eval'].items():
-            f1 = feature['f1']
-            if method not in method_f1s:
-                method_f1s[method] = {}
-            method_f1s[method][qid] = f1
+        if 'eval' in item:      #old version
+            if 'Direct' not in item['eval']:
+                continue
+            if qid not in id_old_to_new:
+                continue
+            for method, feature in item['eval'].items():
+                f1 = feature['f1']
+                if method not in method_f1s:
+                    method_f1s[method] = {}
+                method_f1s[method][id_old_to_new[qid]] = f1
+        else:                   #new_version
+            for method, feature in item['methods'].items():
+                f1 = feature['evaluate']['f1']
+                if method not in method_f1s:
+                    method_f1s[method] = {}
+                method_f1s[method][qid] = f1
     for method, result in method_f1s.items():
-        print('--------------------------------------------------------------------------------------------')
+        print('--------------------------------------------------------------------------------------------\n\n\n')
         print(method)
-        print('avg f1', sum(list(result.values()))/len(result))
+        print('avg f1', avg(list(result.values())))
+        print('iid f1', avg([f1 for qid, f1 in result.items() if id2complevel[qid] == 'iid']))
+        print('compositional f1', avg([f1 for qid, f1 in result.items() if id2complevel[qid] == 'compositional']))
+        print('zero-shot f1', avg([f1 for qid, f1 in result.items() if id2complevel[qid] == 'zero-shot']))
         none_f1 = [f1 for qid, f1 in result.items() if qid in structural_none]
         tc_f1 = [f1 for qid, f1 in result.items() if qid in structural_tc]
         m_f1 = [f1 for qid, f1 in result.items() if qid in structural_m]
@@ -1136,11 +1165,17 @@ def result_analysis(extraction_path, result_path, test_path):
         none_f1 = [f1 for qid, f1 in result.items() if qid in operational_none]
         print('operational_level0')
         print('none', 'number:', len(none_f1), 'average_f1', avg(none_f1))
+        # cmp_wo_cnt_f1 = [f1 for qid, f1 in result.items() if qid in operational_cmp and qid not in operational_arith and qid not in operational_aggr 
+        #                  and 'fact_counting' not in id2aspect[qid]]
+        # cmp_w_cnt_f1 = [f1 for qid, f1 in result.items() if qid in operational_cmp and qid not in operational_arith and qid not in operational_aggr 
+        #                  and 'fact_counting' in id2aspect[qid]]
         cmp_f1 = [f1 for qid, f1 in result.items() if qid in operational_cmp and qid not in operational_arith and qid not in operational_aggr]
         arith_f1 = [f1 for qid, f1 in result.items() if qid not in operational_cmp and qid in operational_arith and qid not in operational_aggr]
-        aggr_f1 = [f1 for qid, f1 in result.items() if qid in operational_cmp and qid not in operational_arith and qid not in operational_aggr]
+        aggr_f1 = [f1 for qid, f1 in result.items() if qid not in operational_cmp and qid not in operational_arith and qid in operational_aggr]
         print('operational_level1')
         print('comparison', 'number:', len(cmp_f1), 'average_f1', avg(cmp_f1))
+        # print('comparison (without_fact_counting)', 'number:', len(cmp_wo_cnt_f1), 'average_f1', avg(cmp_wo_cnt_f1))
+        # print('comparison (with_fact_counting)', 'number:', len(cmp_w_cnt_f1), 'average_f1', avg(cmp_w_cnt_f1))
         print('arithmetic',  'number:', len(arith_f1), 'average_f1', avg(arith_f1))
         print('aggregation',  'number:', len(aggr_f1), 'average_f1', avg(aggr_f1))
         cmp_arith_f1 = [f1 for qid, f1 in result.items() if qid in operational_cmp and qid in operational_arith and qid not in operational_aggr]
@@ -1153,11 +1188,15 @@ def result_analysis(extraction_path, result_path, test_path):
         full_f1 = [f1 for qid, f1 in result.items() if qid in operational_cmp and qid in operational_arith and qid in operational_aggr]
         print('operational_level3')
         print('full', 'number:', len(full_f1), 'average_f1', avg(full_f1))
-        subtle_f1 = [f1 for qid, f1 in result.items() if qid in subtle_id]
-        print('subtle', 'number:', len(subtle_f1), 'average_f1', avg(subtle_f1))
-        non_subtle_f1 = [f1 for qid, f1 in result.items() if qid in non_subtle_id]
-        print('non subtle', 'number:', len(non_subtle_f1), 'average_f1', avg(non_subtle_f1))
-    pass
+
+        print("----------------------------------2 dimension matrix -----------------------------------------------------")
+        dim1_str = ['structural_none', 'structural_temporal_fact_fusion', 'structural_multi_hop_reasoning']
+        dim2_str = ['operational_none', 'operational_cmp', 'operational_arith', 'operational_aggr']
+        for idx1, dim1 in enumerate([structural_none, structural_tc, structural_m]):
+            for idx2, dim2 in enumerate([operational_none, operational_cmp, operational_arith, operational_aggr]):
+                subset_item = [f1 for qid, f1 in result.items() if qid in dim1 and qid in dim2]
+                subset_f1 = avg(subset_item)
+                print('dimension1', dim1_str[idx1], 'dimension2', dim2_str[idx2], 'number', len(subset_item), 'f1', subset_f1)
 
 
 def draw_complexity_combination_table(extraction_path):
@@ -1189,25 +1228,6 @@ def draw_complexity_combination_table(extraction_path):
         complexity_aspects = [aspect for aspect in item['analysis'] if len(item['analysis'][aspect]) > 0]
         structural = [aspect for aspect in complexity_aspects if aspect in ['temporal_fact_fusion', 'multi_hop_reasoning']]
         operational = [aspect for aspect in complexity_aspects if aspect not in ['temporal_fact_fusion', 'multi_hop_reasoning']]
-        if len(structural) == 0:
-            structural_none.append(id)
-        if 'temporal_fact_fusion' in structural:
-            structural_tc.append(id)
-        if 'multi_hop_reasoning' in structural:
-            structural_m.append(id)
-        if 'temporal_fact_fusion' in structural and 'multi_hop_reasoning' in structural:
-            structural_tc_m.append(id)
-        has_cmp = len(set(operational).intersection(['duration_comparison', 'duration_comparison'])) > 0 
-        has_arith = len(set(operational).intersection(['granularity_conversion', 'duration_derivation', 'duration_calculation', 'timepoint_shift'])) > 0
-        has_aggr = len(set(operational).intersection(['timepoint_ordinal', 'duration_ordinal', 'temporal_statistic', 'frequency'])) > 0
-        if not has_cmp and not has_arith and not has_aggr:
-            operational_none.append(id)
-        elif not has_arith and not has_aggr:
-            operational_cmp.append(id)
-        elif not has_aggr:
-            operational_ari.append(id)
-        else:
-            operational_agg.append(id)
     print('Questions containing both temporal fact fusion and multi hop reasoning')
     print(len(structural_tc_m), ':', 100*len(structural_tc_m)/total_len)  
     # dim1_str = ['structural_none', 'structural_m', 'structural_tc', 'structural_tc_m']
@@ -1268,4 +1288,7 @@ if __name__ == "__main__":
 
 
     ##----------------------------------- Analysis of Experimental Results --------------------------------------------------------
-    result_analysis('analysis_results/CR-TKGQA/complexity_taxonomy.json', '', '')
+    # print('--------------OLD-------------')
+    # result_analysis('../analysis_results/CR-TKGQA/complexity_taxonomy.json', '/home5/dkxu/workspace/dataset-ESWC/all_methods_f1.json', '../dataset/CR-TKGQA/test.json')
+    # print('--------------NEW-------------')
+    result_analysis('../analysis_results/CR-TKGQA/complexity_taxonomy.json', '../baselines/results/collect.json', '../dataset/CR-TKGQA/test.json')
