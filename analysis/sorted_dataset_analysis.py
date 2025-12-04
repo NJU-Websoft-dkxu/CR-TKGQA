@@ -354,6 +354,12 @@ def analysis_structural_complexity(data_item, extracted_features):
                 url_in_component.append(url)
         for var, url in itertools.product(external_vars_in_component, url_in_component):
             path = nx.shortest_path(G_sparql_fact_only, source=var, target=url)
+            has_entity = False
+            for i in range(len(path) - 1):
+                if path[i][0] == 'wd:':
+                    has_entity = True
+            if has_entity:
+                continue
             edges = [G_sparql_fact_only[path[i]][path[i+1]] for i in range(0, len(path)-1)]
             if len(edges) >= 3:
                 structural_complexity.append('multi_hop_reasoning')
@@ -1359,5 +1365,5 @@ if __name__ == "__main__":
     ##----------------------------------- Analysis of Experimental Results --------------------------------------------------------
     # print('--------------OLD-------------')
     # result_analysis('../analysis_results/CR-TKGQA/complexity_taxonomy.json', '/home5/dkxu/workspace/dataset-ESWC/all_methods_f1.json', '../dataset/CR-TKGQA/test.json')
-    print('--------------NEW-------------')
-    result_analysis('../analysis_results/CR-TKGQA/complexity_taxonomy.json', '../baselines/results/collect.json', '../dataset/CR-TKGQA/test.json')
+    # print('--------------NEW-------------')
+    # result_analysis('../analysis_results/CR-TKGQA/complexity_taxonomy.json', '../baselines/results/collect.json', '../dataset/CR-TKGQA/test.json')
