@@ -356,7 +356,7 @@ def analysis_structural_complexity(data_item, extracted_features):
             path = nx.shortest_path(G_sparql_fact_only, source=var, target=url)
             has_entity = False
             for i in range(len(path) - 1):
-                if path[i][0] == 'wd:':
+                if path[i].startswith('wd:'):
                     has_entity = True
             if has_entity:
                 continue
